@@ -18,6 +18,8 @@ import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -25,6 +27,9 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.location.LocationRequest;
+
+import java.text.DateFormat;
+import java.util.Date;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener {
 
@@ -54,6 +59,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     protected String mLongitudeLabel = "Long: ";
     protected String mLastUpdateTimeLabel = "Last update: ";
 
+    protected Boolean mRequestingLocationUpdates;
+    protected String mLastUpdateTime = "";
 
 
     @Override
@@ -108,7 +115,29 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     public void onConnected(@Nullable Bundle bundle) {
+        if(mCurrentLocation == null){
+            String[] permission = {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION};
+            ActivityCompat.requestPermissions(this, permission, PERMISSION_GET_LAST_LOCATION);
+        }
 
+        if(mRequestingLocationUpdates){
+            startLocationUpdates();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if(requestCode == PERMISSION_GET_LAST_LOCATION){
+            if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                    ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)!=PackageManager.PERMISSION_GRANTED ){
+                Toast.makeText(this, "ijin tidak diberikan", Toast.LENGTH_SHORT).show();
+            }
+            else{
+                mCurrentLocation = (Location) LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+                mLastUpdateTime = DateFormat.getTimeInstance().format(new Date());
+            }
+        }
     }
 
     @Override
@@ -120,4 +149,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
 
     }
+
+    private void updateUI(){
+        mLatitudeTextView.setText(String.format("%s: %f", mLatitudeLabel, mCurrentLocation.getLatitude()));
+        mLongitudeTextView.setText(String.format("%s: %f", mLongitudeLabel, mCurrentLocation.getLongitude()));
+        mLastUpdateTimeTextView.setText(String.format("%s: %s", mLastUpdateTimeLabel, mLastUpdateTime));
+
+        LatLng myLoc = new LatLng(mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude());
+        mMap.clear();
+        mMap.addMarker(new MarkerOptions().position(myLoc).title("Your Location"));
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(myLoc, 15));
+    }
+
+    protected void startLocationUpdates(){
+        String[] permission = {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION};
+        ActivityCompat.requestPermissions(this, permission, PERMISSION_REQUEST_LOCATION_UPDATES);
+    }
+
 }
